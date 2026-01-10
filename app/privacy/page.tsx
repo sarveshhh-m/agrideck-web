@@ -118,7 +118,7 @@ export default function PrivacyPolicy() {
               <li><strong>Location services:</strong> Disable location tracking in your device settings</li>
             </ul>
             <p className="text-gray-600 leading-relaxed">
-              To exercise these rights, please contact us at privacy@agrideck.com or through the app settings.
+              To exercise these rights, please contact us at iglost999@gmail.com or through the app settings.
             </p>
           </section>
 
@@ -176,13 +176,16 @@ export default function PrivacyPolicy() {
           <section className="mb-10">
             <h2 className="text-2xl font-bold text-gray-900 mb-4 pb-2 border-b-2 border-primary-200">12. Contact Us</h2>
             <p className="text-gray-600 leading-relaxed mb-4">
-              If you have any questions about this Privacy Policy or our privacy practices, please contact us:
+              If you have any questions about this Privacy Policy or our privacy practices, please contact us at:
             </p>
-            <ul className="list-none text-gray-600 space-y-2 bg-primary-50 p-4 rounded-lg">
-              <li><strong>Email:</strong> privacy@agrideck.com</li>
-              <li><strong>Support:</strong> support@agrideck.com</li>
-              <li><strong>GitHub:</strong> <a href="https://github.com/sarveshhh-m/agrideck-stable" className="text-primary-600 hover:underline">github.com/sarveshhh-m/agrideck-stable</a></li>
-            </ul>
+            <div className="bg-primary-50 p-4 rounded-lg">
+              <p className="text-gray-600">
+                <strong>Email:</strong>{" "}
+                <a href="mailto:iglost999@gmail.com" className="text-primary-600 hover:underline">
+                  iglost999@gmail.com
+                </a>
+              </p>
+            </div>
           </section>
 
           <section className="mb-10">
