@@ -11,8 +11,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://agrideck.com'),
-  title: "Agrideck - Agricultural Marketplace",
-  description: "A marketplace connecting farmers and buyers for agricultural produce. Buy and sell farm products directly.",
+  title: "Agrideck - For Next Generation Farmers",
+  description: "Check daily mandi prices, list your produce, negotiate with buyers, and close deals. Agricultural marketplace for modern farmers.",
   keywords: ["agriculture", "marketplace", "farmers", "buyers", "farm products", "agricultural produce"],
   authors: [{ name: "Agrideck" }],
   icons: {

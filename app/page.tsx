@@ -8,13 +8,11 @@ export default function Home() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 mb-6">
-              Empowering Farmers,
-              <br />
-              <span className="text-primary-600">Connecting Markets</span>
+              <span className="text-primary-600">For Next Generation Farmers</span>
             </h1>
             <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              Agrideck is a modern agricultural marketplace that connects farmers directly with buyers.
-              List your produce, negotiate prices, and close deals—all in one platform.
+              Check daily mandi prices, list your produce, negotiate with buyers, and close deals—all in one platform.
+              Empowering farmers with real-time market information and direct buyer connections.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a
