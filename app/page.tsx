@@ -1,19 +1,35 @@
-import { Sprout, Users, TrendingUp, Shield, Globe, Smartphone, MessageSquare, CheckCircle } from "lucide-react";
+import { CheckCircle } from "lucide-react";
+import Image from "next/image";
 
 export default function Home() {
   return (
     <div className="bg-white">
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-primary-50 to-white py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 mb-6">
-              <span className="text-primary-600">For Next Generation Farmers</span>
-            </h1>
-            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              Check daily mandi prices, list your produce, negotiate with buyers, and close deals—all in one platform.
-              Empowering farmers with real-time market information and direct buyer connections.
-            </p>
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
+            {/* Icon */}
+            <div className="flex-shrink-0">
+              <Image
+                src="/icon.png"
+                alt="Agrideck"
+                width={200}
+                height={200}
+                className="w-32 h-32 md:w-48 md:h-48 lg:w-56 lg:h-56"
+                priority
+              />
+            </div>
+
+            {/* Content */}
+            <div className="flex-1">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
+                Agrideck - <span className="text-primary-600">For Next Generation Farmers</span>
+              </h1>
+              <p className="text-lg sm:text-xl text-gray-600 leading-relaxed">
+                Check daily mandi prices, list your produce, negotiate with buyers, and close deals—all in one platform.
+                Empowering farmers with real-time market information and direct buyer connections.
+              </p>
+            </div>
           </div>
         </div>
       </section>
