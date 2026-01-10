@@ -25,10 +25,16 @@ export default function Home() {
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
                 Agrideck - <span className="text-primary-600">For Next Generation Farmers</span>
               </h1>
-              <p className="text-lg sm:text-xl text-gray-600 leading-relaxed">
+              <p className="text-lg sm:text-xl text-gray-600 leading-relaxed mb-6">
                 Check daily mandi prices, list your produce, negotiate with buyers, and close deals—all in one platform.
                 Empowering farmers with real-time market information and direct buyer connections.
               </p>
+              <a
+                href="mailto:support@agrideck.com?subject=Become%20a%20Tester%20-%20Agrideck&body=Hi%20Agrideck%20Team,%0D%0A%0D%0AI%20would%20like%20to%20become%20a%20tester%20for%20the%20Agrideck%20app.%0D%0A%0D%0AName:%20%0D%0ARole:%20(Farmer/Buyer)%0D%0ALocation:%20%0D%0APhone%20Number:%20%0D%0A%0D%0AThank%20you!"
+                className="inline-flex items-center bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition font-semibold"
+              >
+                Become a Tester
+              </a>
             </div>
           </div>
         </div>
