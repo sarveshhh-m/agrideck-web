@@ -10,14 +10,20 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://agrideck.com'),
   title: "Agrideck - Agricultural Marketplace",
   description: "A marketplace connecting farmers and buyers for agricultural produce. Buy and sell farm products directly.",
   keywords: ["agriculture", "marketplace", "farmers", "buyers", "farm products", "agricultural produce"],
   authors: [{ name: "Agrideck" }],
+  icons: {
+    icon: '/icon.png',
+    apple: '/apple-icon.png',
+  },
   openGraph: {
     title: "Agrideck - Agricultural Marketplace",
     description: "A marketplace connecting farmers and buyers for agricultural produce",
     type: "website",
+    images: ['/icon.png'],
   },
 };
 
