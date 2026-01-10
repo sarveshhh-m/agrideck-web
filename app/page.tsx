@@ -146,43 +146,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Tech Stack Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Built with Modern Technology
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Agrideck uses cutting-edge technology to deliver a fast, reliable, and secure experience.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-            <div className="p-4">
-              <div className="text-4xl mb-2">⚛️</div>
-              <p className="font-semibold text-gray-900">React Native</p>
-              <p className="text-sm text-gray-600">Cross-platform</p>
-            </div>
-            <div className="p-4">
-              <div className="text-4xl mb-2">📱</div>
-              <p className="font-semibold text-gray-900">Expo SDK</p>
-              <p className="text-sm text-gray-600">Development</p>
-            </div>
-            <div className="p-4">
-              <div className="text-4xl mb-2">🗄️</div>
-              <p className="font-semibold text-gray-900">Supabase</p>
-              <p className="text-sm text-gray-600">Backend</p>
-            </div>
-            <div className="p-4">
-              <div className="text-4xl mb-2">🔷</div>
-              <p className="font-semibold text-gray-900">TypeScript</p>
-              <p className="text-sm text-gray-600">Type Safety</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Download Section */}
       <section id="download" className="bg-primary-600 py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
