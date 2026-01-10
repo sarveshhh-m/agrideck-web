@@ -3,7 +3,7 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  output: {
+  experimental: {
     // Fix for workspace root warning with multiple lockfiles
     outputFileTracingRoot: path.join(__dirname),
   },
