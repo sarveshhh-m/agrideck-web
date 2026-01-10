@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://agrideck.com'),
   title: "Agrideck - For Next Generation Farmers",
   description: "Check daily mandi prices, list your produce, negotiate with buyers, and close deals. Agricultural marketplace for modern farmers.",
-  keywords: ["agriculture", "marketplace", "farmers", "buyers", "farm products", "agricultural produce"],
+  keywords: ["agriculture", "marketplace", "farmers", "buyers", "farm products", "agricultural produce", "mandi prices", "hindi", "tamil", "bengali", "gujarati", "kannada", "malayalam", "odia"],
   authors: [{ name: "Agrideck" }],
   icons: {
     icon: '/icon.png',
