@@ -14,21 +14,6 @@ export default function Home() {
               Check daily mandi prices, list your produce, negotiate with buyers, and close deals—all in one platform.
               Empowering farmers with real-time market information and direct buyer connections.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a
-                href="#download"
-                className="bg-primary-600 text-white px-8 py-4 rounded-lg hover:bg-primary-700 transition font-semibold text-lg inline-flex items-center justify-center"
-              >
-                <Smartphone className="mr-2 h-5 w-5" />
-                Download App
-              </a>
-              <a
-                href="#features"
-                className="bg-white text-primary-600 border-2 border-primary-600 px-8 py-4 rounded-lg hover:bg-primary-50 transition font-semibold text-lg inline-flex items-center justify-center"
-              >
-                Learn More
-              </a>
-            </div>
           </div>
         </div>
       </section>
