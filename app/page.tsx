@@ -20,81 +20,116 @@ export default function Home() {
 
       {/* Features Section */}
       <section id="features" className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Why Choose Agrideck?
+              Features
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Built for farmers and buyers with features that make agricultural trade simple and efficient.
-            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="space-y-6">
             {/* Feature 1 */}
-            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition">
-              <div className="bg-primary-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                <Users className="h-6 w-6 text-primary-600" />
+            <div className="flex gap-4 items-start">
+              <div className="flex-shrink-0">
+                <CheckCircle className="h-6 w-6 text-primary-600 mt-1" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Dual-Role Authentication</h3>
-              <p className="text-gray-600">
-                Separate interfaces for farmers and buyers with role-specific features and optimized workflows.
-              </p>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Dual-Role Authentication</h3>
+                <p className="text-gray-600">
+                  Separate interfaces for farmers and buyers with role-specific features and optimized workflows.
+                </p>
+              </div>
             </div>
 
             {/* Feature 2 */}
-            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition">
-              <div className="bg-primary-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                <Sprout className="h-6 w-6 text-primary-600" />
+            <div className="flex gap-4 items-start">
+              <div className="flex-shrink-0">
+                <CheckCircle className="h-6 w-6 text-primary-600 mt-1" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Real-time Listings</h3>
-              <p className="text-gray-600">
-                Create and browse agricultural produce listings with photos, descriptions, and instant updates.
-              </p>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Real-time Listings</h3>
+                <p className="text-gray-600">
+                  Create and browse agricultural produce listings with photos, descriptions, and instant updates powered by Supabase real-time database.
+                </p>
+              </div>
             </div>
 
             {/* Feature 3 */}
-            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition">
-              <div className="bg-primary-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                <MessageSquare className="h-6 w-6 text-primary-600" />
+            <div className="flex gap-4 items-start">
+              <div className="flex-shrink-0">
+                <CheckCircle className="h-6 w-6 text-primary-600 mt-1" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Offer Negotiation</h3>
-              <p className="text-gray-600">
-                Built-in counter-offer system for fair price negotiation between farmers and buyers.
-              </p>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Offer Negotiation System</h3>
+                <p className="text-gray-600">
+                  Built-in counter-offer system enabling fair price negotiation between farmers and buyers for transparent deal-making.
+                </p>
+              </div>
             </div>
 
             {/* Feature 4 */}
-            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition">
-              <div className="bg-primary-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                <TrendingUp className="h-6 w-6 text-primary-600" />
+            <div className="flex gap-4 items-start">
+              <div className="flex-shrink-0">
+                <CheckCircle className="h-6 w-6 text-primary-600 mt-1" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Deal Management</h3>
-              <p className="text-gray-600">
-                Track and manage all your transactions in one place with complete history and analytics.
-              </p>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Deal Management & Tracking</h3>
+                <p className="text-gray-600">
+                  Comprehensive transaction tracking and management with complete history, analytics, and deal status monitoring.
+                </p>
+              </div>
             </div>
 
             {/* Feature 5 */}
-            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition">
-              <div className="bg-primary-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                <Globe className="h-6 w-6 text-primary-600" />
+            <div className="flex gap-4 items-start">
+              <div className="flex-shrink-0">
+                <CheckCircle className="h-6 w-6 text-primary-600 mt-1" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Multi-language Support</h3>
-              <p className="text-gray-600">
-                Available in English, Hindi, Tamil, German, and French to serve farmers worldwide.
-              </p>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Multi-language Support</h3>
+                <p className="text-gray-600">
+                  Available in 8 Indian languages: English, Hindi, Tamil, Bengali, Gujarati, Kannada, Malayalam, and Odia to serve farmers across India.
+                </p>
+              </div>
             </div>
 
             {/* Feature 6 */}
-            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition">
-              <div className="bg-primary-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                <Shield className="h-6 w-6 text-primary-600" />
+            <div className="flex gap-4 items-start">
+              <div className="flex-shrink-0">
+                <CheckCircle className="h-6 w-6 text-primary-600 mt-1" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Secure & Private</h3>
-              <p className="text-gray-600">
-                Your data is protected with enterprise-grade security and privacy controls.
-              </p>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Dark & Light Theme</h3>
+                <p className="text-gray-600">
+                  Full theme support with automatic system preference detection for comfortable viewing in any lighting condition.
+                </p>
+              </div>
+            </div>
+
+            {/* Feature 7 */}
+            <div className="flex gap-4 items-start">
+              <div className="flex-shrink-0">
+                <CheckCircle className="h-6 w-6 text-primary-600 mt-1" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Secure & Private</h3>
+                <p className="text-gray-600">
+                  Enterprise-grade security with Supabase PostgreSQL, Row Level Security (RLS) policies, and MMKV encrypted local storage.
+                </p>
+              </div>
+            </div>
+
+            {/* Feature 8 */}
+            <div className="flex gap-4 items-start">
+              <div className="flex-shrink-0">
+                <CheckCircle className="h-6 w-6 text-primary-600 mt-1" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Cross-Platform Mobile App</h3>
+                <p className="text-gray-600">
+                  Built with React Native and Expo SDK for seamless experience on both iOS and Android devices.
+                </p>
+              </div>
             </div>
           </div>
         </div>
