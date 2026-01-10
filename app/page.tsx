@@ -30,7 +30,7 @@ export default function Home() {
                 Empowering farmers with real-time market information and direct buyer connections.
               </p>
               <a
-                href="mailto:support@agrideck.com?subject=Become%20a%20Tester%20-%20Agrideck&body=Hi%20Agrideck%20Team,%0D%0A%0D%0AI%20would%20like%20to%20become%20a%20tester%20for%20the%20Agrideck%20app.%0D%0A%0D%0AName:%20%0D%0ARole:%20(Farmer/Buyer)%0D%0ALocation:%20%0D%0APhone%20Number:%20%0D%0A%0D%0AThank%20you!"
+                href="mailto:iglost999@gmail.com?subject=Become%20a%20Tester%20-%20Agrideck&body=Hi%20Agrideck%20Team,%0D%0A%0D%0AI%20would%20like%20to%20become%20a%20tester%20for%20the%20Agrideck%20app.%0D%0A%0D%0AName:%20%0D%0ARole:%20(Farmer/Buyer)%0D%0ALocation:%20%0D%0APhone%20Number:%20%0D%0A%0D%0AThank%20you!"
                 className="inline-flex items-center bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition font-semibold"
               >
                 Become a Tester
