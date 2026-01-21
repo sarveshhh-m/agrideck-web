@@ -51,7 +51,8 @@ Return the response in JSON format:
   ...
 ]
 
-Return only the JSON array, no explanation. If translation is unsure, return empty string.`;
+Return only the JSON array, no explanation. If translation is unsure, write the English name in the target language.
+Make sure Json should not contain any faulty or error syntax`;
 
   try {
     const response = await geminiClient.models.generateContent({
