@@ -1,21 +1,59 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Tables } from '@/lib/supabase/database';
+import Table from '@/app/components/Table';
+import Badge from '@/app/components/Badge';
+import SearchInput from '@/app/components/SearchInput';
+import FilterDropdown from '@/app/components/FilterDropdown';
+import Pagination from '@/app/components/Pagination';
 
 type User = Tables<'users'>;
+
+const PAGE_SIZE_OPTIONS = [10, 50, 100, 500, 1000];
+
+// Loading Skeleton
+const TableSkeleton = () => (
+  <div className="space-y-4 animate-pulse">
+    <div className="h-10 bg-gray-200 rounded-md w-full"></div>
+    <div className="space-y-2">
+      <div className="h-12 bg-gray-200 rounded-md"></div>
+      <div className="h-12 bg-gray-200 rounded-md"></div>
+      <div className="h-12 bg-gray-200 rounded-md"></div>
+    </div>
+  </div>
+);
+
+type State = { id: string; name: string };
+type District = { id: string; name: string };
 
 export default function UsersTable() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [pageSize, setPageSize] = useState(100);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const [totalCount, setTotalCount] = useState(0);
+  const [states, setStates] = useState<State[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [selectedState, setSelectedState] = useState('');
+  const [selectedDistrict, setSelectedDistrict] = useState('');
   const supabase = createClient();
 
   const fetchUsers = useCallback(
-    async (search = '') => {
+    async (search = '', page = 1, size = 10, stateId = '', districtId = '') => {
+      setLoading(true);
       try {
-        let query = supabase.from('users').select('*').order('created_at', { ascending: false });
+        const from = (page - 1) * size;
+        const to = from + size - 1;
+
+        let query = supabase
+          .from('users')
+          .select('*, districts(name), states(name)', { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .range(from, to);
 
         if (search.trim()) {
           query = query.or(
@@ -23,10 +61,14 @@ export default function UsersTable() {
           );
         }
 
-        const { data, error } = await query;
+        if (stateId) query = query.eq('state_id', stateId);
+        if (districtId) query = query.eq('district_id', districtId);
+
+        const { data, error, count } = await query;
 
         if (error) throw error;
         setUsers(data || []);
+        setTotalCount(count || 0);
       } catch (error) {
         console.error('Error fetching users:', error);
       } finally {
@@ -35,120 +77,137 @@ export default function UsersTable() {
     },
     [supabase]
   );
+  
+  const fetchStates = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from('states').select('id, name').order('name');
+      if (error) throw error;
+      setStates(data || []);
+    } catch (error) {
+      console.error('Error fetching states:', error);
+    }
+  }, [supabase]);
+
+  const fetchDistricts = useCallback(async (stateId = '') => {
+    if (!stateId) {
+      setDistricts([]);
+      return;
+    }
+    try {
+      const { data, error } = await supabase.from('districts').select('id, name').eq('state_id', stateId).order('name');
+      if (error) throw error;
+      setDistricts(data || []);
+    } catch (error) {
+      console.error('Error fetching districts:', error);
+    }
+  }, [supabase]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    fetchStates();
+  }, [fetchStates]);
 
   useEffect(() => {
-    fetchUsers(searchQuery);
-  }, [searchQuery, fetchUsers]);
+    fetchDistricts(selectedState);
+  }, [selectedState, fetchDistricts]);
 
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
+  useEffect(() => {
+    fetchUsers(searchQuery, currentPage, pageSize, selectedState, selectedDistrict);
+  }, [searchQuery, currentPage, pageSize, selectedState, selectedDistrict, fetchUsers]);
+
+  const handleUserClick = (user: User) => {
+    window.location.href = `/superuser/users/${user.id}`;
   };
 
-  const handleUserClick = (userId: string) => {
-    window.location.href = `/superuser/users/${userId}`;
-  };
+  const columns = useMemo(
+    () => [
+      {
+        header: 'Name',
+        accessor: (user: User) => (
+          <div>
+            <div className="font-medium text-gray-900">{user.full_name}</div>
+            {user.business_name && <div className="text-gray-500">{user.business_name}</div>}
+          </div>
+        ),
+      },
+      {
+        header: 'Phone',
+        accessor: 'phone_number',
+      },
+      {
+        header: 'State',
+        accessor: (user: any) => user.states?.name || 'N/A',
+      },
+      {
+        header: 'District',
+        accessor: (user: any) => user.districts?.name || 'N/A',
+      },
+      {
+        header: 'Role',
+        accessor: (user: User) => <Badge type="role" value={user.role} />,
+      },
+      {
+        header: 'Status',
+        accessor: (user: User) => <Badge type="status" value={user.status} />,
+      },
+      {
+        header: 'Created',
+        accessor: (user: User) => new Date(user.created_at).toLocaleDateString(),
+      },
+    ],
+    []
+  );
 
-  if (loading) {
-    return <div className="text-center py-8">Loading users...</div>;
-  }
+  if (loading) return <TableSkeleton />;
+
+  const stateOptions = states.map(s => ({ value: s.id, label: s.name }));
+  const districtOptions = districts.map(d => ({ value: d.id, label: d.name }));
 
   return (
-    <div className="space-y-4">
-      {/* Search Input */}
-      <div className="flex items-center space-x-4">
-        <div className="flex-1 max-w-md">
-          <input
-            type="text"
-            placeholder="Search by name, business name, or phone..."
+    <div className="space-y-6">
+      <div className="space-y-4 p-4 bg-gray-50 rounded-lg border">
+        <Pagination
+          currentPage={currentPage}
+          totalPages={Math.ceil(totalCount / pageSize)}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+        />
+        <div className="flex flex-wrap gap-4 items-center">
+          <SearchInput
             value={searchQuery}
-            onChange={e => handleSearchChange(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            onChange={setSearchQuery}
+            placeholder="Search by name, business, or phone..."
+            className="flex-1 min-w-[250px]"
+          />
+          <FilterDropdown
+            label="State"
+            value={selectedState}
+            onChange={(e) => { setSelectedState(e.target.value); setSelectedDistrict(''); setCurrentPage(1); }}
+            options={stateOptions}
+            defaultOptionLabel="All States"
+          />
+          <FilterDropdown
+            label="District"
+            value={selectedDistrict}
+            onChange={(e) => { setSelectedDistrict(e.target.value); setCurrentPage(1); }}
+            options={districtOptions}
+            disabled={!selectedState}
+            defaultOptionLabel="All Districts"
           />
         </div>
-        <div className="text-sm text-gray-500">{users.length} users</div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Name
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Phone
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Role
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Created
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {users.map(user => (
-              <tr
-                key={user.id}
-                onClick={() => handleUserClick(user.id)}
-                className="cursor-pointer hover:bg-gray-50"
-              >
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
-                  {user.business_name && (
-                    <div className="text-sm text-gray-500">{user.business_name}</div>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{user.phone_number}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span
-                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      user.role === 'admin'
-                        ? 'bg-purple-100 text-purple-800'
-                        : user.role === 'farmer'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-blue-100 text-blue-800'
-                    }`}
-                  >
-                    {user.role}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span
-                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      user.status === 'active'
-                        ? 'bg-green-100 text-green-800'
-                        : user.status === 'suspended'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                    }`}
-                  >
-                    {user.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {new Date(user.created_at).toLocaleDateString()}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="bg-white rounded-lg shadow-md border overflow-hidden">
+        <Table data={users} columns={columns} onRowClick={handleUserClick} searchQuery={searchQuery} />
       </div>
 
-      {users.length === 0 && searchQuery && (
-        <div className="text-center py-8 text-gray-500">No users match your search</div>
-      )}
-      {users.length === 0 && !searchQuery && (
-        <div className="text-center py-8 text-gray-500">No users found</div>
+      {users.length === 0 && (
+        <div className="text-center py-12 text-gray-500">
+          <h3 className="text-lg font-semibold">No Users Found</h3>
+          <p>{searchQuery ? 'No users match your search.' : 'There are currently no users to display.'}</p>
+        </div>
       )}
     </div>
   );

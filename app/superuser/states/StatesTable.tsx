@@ -1,383 +1,342 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import type { Tables } from '@/lib/supabase/database';
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { Tables } from "@/lib/supabase/database";
+import {
+  Languages,
+  MapPin,
+  PenSquare,
+  Eye,
+  EyeOff,
+  Save,
+  X,
+  AlertTriangle,
+  CheckCircle,
+  Loader2,
+  List,
+  Map,
+} from "lucide-react";
+import Badge from "@/app/components/Badge";
+import SearchInput from "@/app/components/SearchInput";
 
-type State = Tables<'states'> & {
-  state_translations: Tables<'state_translations'>[];
+// Type definitions
+type State = Tables<"states"> & {
+  state_translations: Tables<"state_translations">[];
 };
-
-type Language = {
-  code: string;
-  name: string;
-};
-
+type Language = { code: string; name: string };
 type PendingChange = {
   stateId: number;
   stateName: string;
-  field: 'name' | 'needs_review' | 'state_name';
+  field: "name" | "state_name";
   oldValue: string | boolean;
   newValue: string | boolean;
   languageCode?: string;
 };
 
+const PAGE_SIZE_OPTIONS = [10, 50, 100, 500, 1000];
+
+// --- Sub-components ---
+
+const TableSkeleton = () => (
+  <div className="space-y-2 animate-pulse">
+    {[...Array(5)].map((_, i) => (
+      <div key={i} className="h-16 bg-gray-100 rounded-lg"></div>
+    ))}
+  </div>
+);
+
+const LanguageSelector = ({
+  languages,
+  selected,
+  onChange,
+}: {
+  languages: Language[];
+  selected: string;
+  onChange: (val: string) => void;
+}) => (
+  <div className="flex items-center gap-3">
+    <Languages className="w-6 h-6 text-indigo-600" />
+    <select
+      id="language-select"
+      value={selected}
+      onChange={(e) => onChange(e.target.value)}
+      className="px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 bg-white text-md font-medium text-gray-700 hover:bg-gray-50"
+    >
+      {languages.map((lang) => (
+        <option key={lang.code} value={lang.code}>
+          {lang.name} ({lang.code.toUpperCase()})
+        </option>
+      ))}
+    </select>
+  </div>
+);
+
+// --- Main Component ---
+
 export default function StatesTable() {
   const [states, setStates] = useState<State[]>([]);
   const [languages, setLanguages] = useState<Language[]>([]);
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('en');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
   const [showReview, setShowReview] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [pageSize, setPageSize] = useState(100);
+  const [currentPage, setCurrentPage] = useState(1);
+
   const supabase = createClient();
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      // Fetch states
-      const { data: statesData, error: statesError } = await supabase
-        .from('states')
-        .select(
-          `
-          *,
-          state_translations (*)
-        `
-        )
-        .order('name');
-
-      if (statesError) throw statesError;
-      setStates(statesData || []);
-
-      // Fetch languages
-      const { data: languagesData, error: languagesError } = await supabase
-        .from('languages')
-        .select('code, name')
-        .order('code');
-
-      if (languagesError) throw languagesError;
-      setLanguages(languagesData || []);
+      const [statesRes, languagesRes] = await Promise.all([
+        supabase
+          .from("states")
+          .select(`*, state_translations(*)`)
+          .order("name"),
+        supabase.from("languages").select("code, name").order("code"),
+      ]);
+      if (statesRes.error) throw statesRes.error;
+      if (languagesRes.error) throw languagesRes.error;
+      setStates(statesRes.data || []);
+      setLanguages(languagesRes.data || []);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase]);
 
-  const addPendingChange = (change: PendingChange) => {
-    setPendingChanges(prev => {
-      // Remove existing change for same state/field/language
-      const filtered = prev.filter(
-        c =>
-          !(
-            c.stateId === change.stateId &&
-            c.field === change.field &&
-            c.languageCode === change.languageCode
-          )
-      );
-      // Only add if value actually changed from original
-      if (change.oldValue === change.newValue) {
-        return filtered;
-      }
-      return [...filtered, change];
-    });
-  };
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-  const updateStateName = (stateId: number, currentName: string, newName: string) => {
-    // Update local state immediately
-    setStates(prev =>
-      prev.map(state => (state.id === stateId ? { ...state, name: newName } : state))
-    );
-
-    // Track change
-    addPendingChange({
-      stateId,
-      stateName: currentName,
-      field: 'state_name',
-      oldValue: currentName,
-      newValue: newName,
-    });
-  };
-
-  const updateTranslation = (stateId: number, stateName: string, field: 'name', value: string) => {
-    // Update local state immediately
-    setStates(prev =>
-      prev.map(state => {
-        if (state.id !== stateId) return state;
-
-        const translations = state.state_translations || [];
-        const existingTranslation = translations.find(t => t.language_code === selectedLanguage);
-
-        if (existingTranslation) {
-          return {
-            ...state,
-            state_translations: translations.map(t =>
-              t.language_code === selectedLanguage ? { ...t, [field]: value } : t
-            ),
-          };
-        } else {
-          return {
-            ...state,
-            state_translations: [
-              ...translations,
-              {
-                state_id: stateId,
-                language_code: selectedLanguage,
-                [field]: value,
-                needs_review: false,
-              } as Tables<'state_translations'>,
-            ],
-          };
-        }
-      })
-    );
-
-    // Track change
-    const translation = states
-      .find(s => s.id === stateId)
-      ?.state_translations.find(t => t.language_code === selectedLanguage);
-
-    addPendingChange({
-      stateId,
-      stateName,
-      field,
-      oldValue: translation?.[field] || '',
-      newValue: value,
-      languageCode: selectedLanguage,
-    });
-  };
-
-  const toggleNeedsReview = (stateId: number, stateName: string, needsReview: boolean) => {
-    // Update local state immediately
-    setStates(prev =>
-      prev.map(state => {
-        if (state.id !== stateId) return state;
-
-        const translations = state.state_translations || [];
-        const existingTranslation = translations.find(t => t.language_code === selectedLanguage);
-
-        if (existingTranslation) {
-          return {
-            ...state,
-            state_translations: translations.map(t =>
-              t.language_code === selectedLanguage ? { ...t, needs_review: needsReview } : t
-            ),
-          };
-        } else {
-          return {
-            ...state,
-            state_translations: [
-              ...translations,
-              {
-                state_id: stateId,
-                language_code: selectedLanguage,
-                name: '',
-                needs_review: needsReview,
-              } as Tables<'state_translations'>,
-            ],
-          };
-        }
-      })
-    );
-
-    // Track change
-    const translation = states
-      .find(s => s.id === stateId)
-      ?.state_translations.find(t => t.language_code === selectedLanguage);
-
-    addPendingChange({
-      stateId,
-      stateName,
-      field: 'needs_review',
-      oldValue: translation?.needs_review || false,
-      newValue: needsReview,
-      languageCode: selectedLanguage,
-    });
-  };
-
-  const saveChanges = async () => {
-    setIsSaving(true);
+  const fetchStates = async () => {
     try {
-      for (const change of pendingChanges) {
-        if (change.field === 'state_name') {
-          // Update state name
-          const { error } = await supabase
-            .from('states')
-            .update({ name: change.newValue as string })
-            .eq('id', change.stateId);
+      const { data, error } = await supabase
+        .from("states")
+        .select(`*, state_translations(*)`)
+        .order("name");
+      if (error) throw error;
+      setStates(data || []);
+    } catch (error) {
+      console.error("Error fetching states:", error);
+    }
+  };
 
-          if (error) throw error;
-        } else if (change.field === 'needs_review') {
-          // Update needs_review
-          const { error } = await supabase
-            .from('state_translations')
-            .update({ needs_review: change.newValue as boolean })
-            .eq('state_id', change.stateId)
-            .eq('language_code', change.languageCode!);
+  const trackChange = (
+    stateId: number,
+    stateName: string,
+    field: PendingChange["field"],
+    oldValue: any,
+    newValue: any,
+    languageCode?: string,
+  ) => {
+    setPendingChanges((prev) => {
+      const filtered = prev.filter(
+        (c) =>
+          !(
+            c.stateId === stateId &&
+            c.field === field &&
+            c.languageCode === languageCode
+          ),
+      );
+      if (newValue === oldValue) return filtered;
+      return [
+        ...filtered,
+        { stateId, stateName, field, oldValue, newValue, languageCode },
+      ];
+    });
+  };
 
-          if (error) throw error;
-        } else {
-          // Update translation
-          const { error } = await supabase.from('state_translations').upsert(
-            {
-              state_id: change.stateId,
-              language_code: change.languageCode!,
-              [change.field]: change.newValue,
-            },
-            {
-              onConflict: 'state_id,language_code',
-              ignoreDuplicates: false,
-            }
-          );
+  const updateStateName = (stateId: number, newName: string) => {
+    const state = states.find((s) => s.id === stateId);
+    if (!state) return;
+    trackChange(stateId, state.name, "state_name", state.name, newName);
+    setStates((prev) =>
+      prev.map((s) => (s.id === stateId ? { ...s, name: newName } : s)),
+    );
+  };
 
-          if (error) throw error;
+  const updateTranslation = (
+    stateId: number,
+    languageCode: string,
+    value: string,
+  ) => {
+    const state = states.find((s) => s.id === stateId);
+    if (!state) return;
+    const translation = state.state_translations.find(
+      (t) => t.language_code === languageCode,
+    );
+    const oldValue = translation?.name || "";
+    trackChange(stateId, state.name, "name", oldValue, value, languageCode);
+    setStates((prev) =>
+      prev.map((s) => {
+        if (s.id !== stateId) return s;
+        const existing = s.state_translations.find(
+          (t) => t.language_code === languageCode,
+        );
+        if (existing) {
+          return {
+            ...s,
+            state_translations: s.state_translations.map((t) =>
+              t.language_code === languageCode ? { ...t, name: value } : t,
+            ),
+          };
         }
-      }
+        return {
+          ...s,
+          state_translations: [
+            ...s.state_translations,
+            {
+              state_id: stateId,
+              language_code: languageCode,
+              name: value,
+            } as any,
+          ],
+        };
+      }),
+    );
+  };
 
-      // Clear pending changes and refresh data
+  const saveAllChanges = async () => {
+    if (pendingChanges.length === 0) return;
+    setSaving(true);
+    try {
+      const stateNameChanges = pendingChanges.filter(
+        (c) => c.field === "state_name",
+      );
+      for (const change of stateNameChanges) {
+        await supabase
+          .from("states")
+          .update({ name: change.newValue as string })
+          .eq("id", change.stateId);
+      }
+      const translationChanges = pendingChanges.filter(
+        (c) => c.field !== "state_name",
+      );
+      const groups: Record<string, any> = {};
+      for (const change of translationChanges) {
+        const key = `${change.stateId}-${change.languageCode}`;
+        if (!groups[key]) {
+          groups[key] = {
+            state_id: change.stateId,
+            language_code: change.languageCode,
+          };
+        }
+        groups[key][change.field] = change.newValue;
+      }
+      for (const translation of Object.values(groups)) {
+        await supabase
+          .from("state_translations")
+          .upsert(translation, { onConflict: "state_id,language_code" });
+      }
       setPendingChanges([]);
       setShowReview(false);
-      await fetchData();
+      await fetchStates();
     } catch (error) {
-      console.error('Error saving changes:', error);
-      alert('Failed to save changes. Please try again.');
+      console.error("Error saving changes:", error);
     } finally {
-      setIsSaving(false);
+      setSaving(false);
     }
   };
 
   const discardChanges = () => {
     setPendingChanges([]);
     setShowReview(false);
-    fetchData(); // Reload original data
+    fetchStates();
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-        <span className="ml-3 text-gray-600">Loading states...</span>
-      </div>
-    );
-  }
+  const filteredStates = useMemo(() => {
+    return states.filter((state) => {
+      const searchMatch =
+        !searchQuery.trim() ||
+        state.name?.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+        state.state_translations.some((t) =>
+          t.name?.toLowerCase().includes(searchQuery.toLowerCase().trim()),
+        );
+      return searchMatch;
+    });
+  }, [states, searchQuery]);
 
-  const selectedLang = languages.find(l => l.code === selectedLanguage);
+  const paginatedStates = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredStates.slice(start, start + pageSize);
+  }, [filteredStates, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filteredStates.length / pageSize);
+
+  if (loading) return <TableSkeleton />;
+
+  const selectedLangName =
+    languages.find((l) => l.code === selectedLanguage)?.name ||
+    selectedLanguage.toUpperCase();
 
   return (
-    <div className="space-y-4">
-      {/* Language Selector */}
-      <div className="flex items-center justify-between bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-lg p-4">
-        <div className="flex items-center gap-3">
-          <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-          </svg>
-          <label htmlFor="language-select" className="text-sm font-medium text-gray-700">
-            Select Language to Edit:
-          </label>
+    <div className="space-y-6">
+      <div className="p-4 bg-gray-50 rounded-lg border flex flex-wrap items-center justify-between gap-4">
+        <LanguageSelector
+          languages={languages}
+          selected={selectedLanguage}
+          onChange={setSelectedLanguage}
+        />
+        <SearchInput
+          value={searchQuery}
+          onChange={(val) => {
+            setSearchQuery(val);
+            setCurrentPage(1);
+          }}
+          placeholder="Search states..."
+          className="flex-1 min-w-[250px]"
+        />
+        <div className="flex items-center gap-2 text-sm">
+          <Badge type="role" value={`${filteredStates.length} States`} />
+          <Badge type="status" value={`Editing: ${selectedLangName}`} />
         </div>
-        <select
-          id="language-select"
-          value={selectedLanguage}
-          onChange={(e) => setSelectedLanguage(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          {languages.map(lang => (
-            <option key={lang.code} value={lang.code}>
-              {lang.name} ({lang.code.toUpperCase()})
-            </option>
-          ))}
-        </select>
       </div>
 
-      {/* Stats Badge */}
-      <div className="flex items-center gap-2 text-sm text-gray-600">
-        <span className="inline-flex items-center px-3 py-1 rounded-full bg-purple-100 text-purple-800 font-medium">
-          {states.length} States
-        </span>
-        <span className="inline-flex items-center px-3 py-1 rounded-full bg-violet-100 text-violet-800 font-medium">
-          Editing: {selectedLang?.name || selectedLanguage.toUpperCase()}
-        </span>
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+      {/* Table and Pagination */}
+      <div className="overflow-x-auto rounded-lg border">
         <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+          <thead className="bg-gray-100">
             <tr>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-                  </svg>
-                  State (English)
-                </div>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <MapPin className="w-4 h-4 inline mr-2" />
+                State (English)
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                {selectedLang?.name || selectedLanguage.toUpperCase()} Name
-              </th>
-              <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-32">
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Needs Review
-                </div>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                {selectedLangName} Name
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {states.map((state, index) => {
+            {paginatedStates.map((state) => {
               const translation = state.state_translations.find(
-                t => t.language_code === selectedLanguage
+                (t) => t.language_code === selectedLanguage,
               );
-
               return (
                 <tr
                   key={state.id}
-                  className={`hover:bg-purple-50 transition-colors ${
-                    translation?.needs_review ? 'bg-yellow-50' : ''
-                  }`}
+                  className="hover:bg-indigo-50 transition-colors"
                 >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-medium text-gray-400">
-                        {index + 1}
-                      </span>
-                      <input
-                        type="text"
-                        value={state.name}
-                        onChange={e => {
-                          const originalState = states.find(s => s.id === state.id);
-                          updateStateName(state.id, originalState?.name || state.name, e.target.value);
-                        }}
-                        className="text-sm font-semibold text-gray-900 border-b border-transparent hover:border-gray-300 focus:border-purple-500 focus:outline-none px-1 py-0.5 transition-colors"
-                      />
-                    </div>
+                  <td className="px-6 py-4 font-medium text-gray-900">
+                    {state.name}
                   </td>
                   <td className="px-6 py-4">
                     <input
                       type="text"
-                      value={translation?.name || ''}
-                      onChange={e => updateTranslation(state.id, state.name, 'name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm transition-all hover:border-gray-400"
-                      placeholder={`Enter ${selectedLanguage} name`}
+                      value={translation?.name || ""}
+                      onChange={(e) =>
+                        updateTranslation(
+                          state.id,
+                          selectedLanguage,
+                          e.target.value,
+                        )
+                      }
+                      className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500"
+                      placeholder="Enter name..."
                     />
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-center">
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={translation?.needs_review || false}
-                          onChange={e => toggleNeedsReview(state.id, state.name, e.target.checked)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-yellow-500"></div>
-                      </label>
-                    </div>
                   </td>
                 </tr>
               );
@@ -386,115 +345,168 @@ export default function StatesTable() {
         </table>
       </div>
 
-      {states.length === 0 && (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-          </svg>
-          <p className="mt-2 text-sm text-gray-500">No states found</p>
+      {/* Pagination and Page Size */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-600">Show</label>
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+          <span className="text-sm text-gray-600">entries</span>
+        </div>
+        <div className="text-sm text-gray-600">
+          {filteredStates.length === 0
+            ? "0 states"
+            : `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, filteredStates.length)} of ${filteredStates.length}`}
+        </div>
+      </div>
+
+      {filteredStates.length > 0 && (
+        <div className="flex justify-between items-center px-4 py-3 bg-gray-50 border-t">
+          <div className="text-sm text-gray-600">
+            Page {currentPage} of {totalPages || 1}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 text-sm border border-gray-300 rounded-md bg-white text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+              }
+              disabled={currentPage >= totalPages}
+              className="px-3 py-1 text-sm border border-gray-300 rounded-md bg-white text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Pending Changes Panel */}
+      {/* No Results Message */}
+      {filteredStates.length === 0 && (
+        <div className="text-center py-12 text-gray-500 border-2 border-dashed rounded-lg">
+          <List className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-lg font-semibold">No States Found</h3>
+          <p>
+            {searchQuery
+              ? "Try a different search term"
+              : "No states to display"}
+          </p>
+        </div>
+      )}
+
+      {/* Pending Changes Bar */}
       {pendingChanges.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-purple-500 shadow-2xl z-50">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-indigo-500 shadow-2xl z-50">
           <div className="max-w-7xl mx-auto px-6 py-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                  <span className="font-semibold text-gray-900">
-                    {pendingChanges.length} Pending Change{pendingChanges.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-                <button
-                  onClick={() => setShowReview(!showReview)}
-                  className="text-sm text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+              <div className="flex items-center gap-3">
+                <div
+                  className={`flex items-center justify-center w-10 h-10 rounded-full ${showReview ? "bg-yellow-100" : "bg-indigo-100"}`}
                 >
-                  {showReview ? 'Hide' : 'Review'} Changes
-                  <svg
-                    className={`w-4 h-4 transition-transform ${showReview ? 'rotate-180' : ''}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
+                  {showReview ? (
+                    <AlertTriangle className="w-5 h-5 text-yellow-600" />
+                  ) : (
+                    <CheckCircle className="w-5 h-5 text-indigo-600" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">
+                    {pendingChanges.length} Pending{" "}
+                    {pendingChanges.length === 1 ? "Change" : "Changes"}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Review your changes before saving
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <button
-                  onClick={discardChanges}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  disabled={isSaving}
+                  onClick={() => setShowReview(!showReview)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
                 >
-                  Discard
+                  {showReview ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                  {showReview ? "Hide" : "Review"}
                 </button>
                 <button
-                  onClick={saveChanges}
-                  disabled={isSaving}
-                  className="px-6 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  onClick={discardChanges}
+                  className="px-4 py-2 text-sm font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 flex items-center gap-2"
                 >
-                  {isSaving ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Save Changes
-                    </>
-                  )}
+                  <X className="w-4 h-4" /> Discard
+                </button>
+                <button
+                  onClick={saveAllChanges}
+                  disabled={saving}
+                  className="px-6 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Loader2
+                    className={`w-4 h-4 ${saving ? "animate-spin" : "hidden"}`}
+                  />
+                  <Save className={`w-4 h-4 ${saving ? "hidden" : ""}`} />
+                  Save Changes
                 </button>
               </div>
             </div>
-
-            {/* Review Table */}
             {showReview && (
-              <div className="mt-4 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto max-h-64">
-                  <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">State</th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Field</th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Language</th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Old Value</th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">New Value</th>
+              <div className="mt-4 max-h-64 overflow-y-auto bg-gray-50 rounded-lg border p-2">
+                <table className="min-w-full divide-y">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="p-2 text-left text-xs font-semibold uppercase">
+                        State
+                      </th>
+                      <th className="p-2 text-left text-xs font-semibold uppercase">
+                        Field
+                      </th>
+                      <th className="p-2 text-left text-xs font-semibold uppercase">
+                        Old
+                      </th>
+                      <th className="p-2 text-left text-xs font-semibold uppercase">
+                        New
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y">
+                    {pendingChanges.map((c, i) => (
+                      <tr key={i}>
+                        <td className="p-2 text-sm font-medium">
+                          {c.stateName}
+                        </td>
+                        <td className="p-2 text-sm">
+                          {c.field === "state_name"
+                            ? `Name (EN)`
+                            : `Name (${c.languageCode})`}
+                        </td>
+                        <td className="p-2 text-sm text-gray-500 line-through">
+                          "{c.oldValue as string}"
+                        </td>
+                        <td className="p-2 text-sm text-green-600 font-semibold">
+                          "{c.newValue as string}"
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {pendingChanges.map((change, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50">
-                          <td className="px-4 py-2 text-gray-900">{change.stateName}</td>
-                          <td className="px-4 py-2 text-gray-700 capitalize">
-                            {change.field === 'state_name' ? 'State Name (EN)' : change.field.replace('_', ' ')}
-                          </td>
-                          <td className="px-4 py-2 text-gray-700">
-                            {change.languageCode ? change.languageCode.toUpperCase() : 'EN'}
-                          </td>
-                          <td className="px-4 py-2 text-gray-600">
-                            {typeof change.oldValue === 'boolean'
-                              ? change.oldValue
-                                ? '✓ Yes'
-                                : '✗ No'
-                              : change.oldValue || '(empty)'}
-                          </td>
-                          <td className="px-4 py-2 text-purple-600 font-medium">
-                            {typeof change.newValue === 'boolean'
-                              ? change.newValue
-                                ? '✓ Yes'
-                                : '✗ No'
-                              : change.newValue || '(empty)'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

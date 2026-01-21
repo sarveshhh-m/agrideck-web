@@ -1,31 +1,21 @@
 import { Suspense } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import MandisTable from './MandisTable';
+import PageHeader from '@/app/components/PageHeader';
+import Card from '@/app/components/Card';
 
 export default function MandisPage() {
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Mandi Translations</h1>
-            <p className="text-gray-600 mt-2">
-              Manage mandi (market) names and translations across languages
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border">
-          <div className="px-6 py-4 border-b">
-            <h2 className="text-lg font-semibold text-gray-900">Mandis</h2>
-          </div>
-          <div className="p-6">
-            <Suspense fallback={<div>Loading mandis...</div>}>
-              <MandisTable />
-            </Suspense>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Mandi Translations"
+        description="Manage mandi (market) names and translations across languages"
+      />
+      <Card padding="lg">
+        <Suspense fallback={<div className="text-center py-8">Loading...</div>}>
+          <MandisTable />
+        </Suspense>
+      </Card>
     </DashboardLayout>
   );
 }

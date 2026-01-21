@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Sprout } from "lucide-react";
+import NavLink from "./NavLink";
+import Button from "./Button";
 
 export default function Header() {
   return (
@@ -12,27 +14,24 @@ export default function Header() {
           </Link>
 
           <div className="hidden md:flex items-center space-x-8">
-            <Link href="/#features" className="text-gray-600 hover:text-primary-600 transition">
+            <NavLink href="/#features">
               Features
-            </Link>
-            <Link href="/#download" className="text-gray-600 hover:text-primary-600 transition">
+            </NavLink>
+            <NavLink href="/#download">
               Download
-            </Link>
-            <Link href="/privacy" className="text-gray-600 hover:text-primary-600 transition">
+            </NavLink>
+            <NavLink href="/privacy">
               Privacy
-            </Link>
-            <Link href="/terms" className="text-gray-600 hover:text-primary-600 transition">
+            </NavLink>
+            <NavLink href="/terms">
               Terms
-            </Link>
+            </NavLink>
           </div>
 
           <div className="flex items-center space-x-4">
-            <a
-              href="#download"
-              className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 transition font-medium"
-            >
+            <Button href="#download">
               Get Started
-            </a>
+            </Button>
           </div>
         </div>
       </nav>

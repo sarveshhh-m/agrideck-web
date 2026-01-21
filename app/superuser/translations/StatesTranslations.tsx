@@ -76,20 +76,7 @@ export default function StatesTranslations() {
     }
   };
 
-  const toggleNeedsReview = async (stateId: number, needsReview: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('state_translations')
-        .update({ needs_review: needsReview })
-        .eq('state_id', stateId)
-        .eq('language_code', selectedLanguage);
 
-      if (error) throw error;
-      await fetchData();
-    } catch (error) {
-      console.error('Error updating needs_review:', error);
-    }
-  };
 
   if (loading) {
     return (
@@ -154,14 +141,6 @@ export default function StatesTranslations() {
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 {selectedLang?.name || selectedLanguage.toUpperCase()} Name
               </th>
-              <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-32">
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Needs Review
-                </div>
-              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -173,9 +152,7 @@ export default function StatesTranslations() {
               return (
                 <tr
                   key={state.id}
-                  className={`hover:bg-indigo-50 transition-colors ${
-                    translation?.needs_review ? 'bg-yellow-50' : ''
-                  }`}
+                  className="hover:bg-indigo-50 transition-colors"
                 >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
@@ -195,19 +172,6 @@ export default function StatesTranslations() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all hover:border-gray-400"
                       placeholder={`Enter ${selectedLanguage} name`}
                     />
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-center">
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={translation?.needs_review || false}
-                          onChange={e => toggleNeedsReview(state.id, e.target.checked)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-yellow-500"></div>
-                      </label>
-                    </div>
                   </td>
                 </tr>
               );
