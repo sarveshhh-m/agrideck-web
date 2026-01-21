@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Tables } from '@/lib/supabase/database';
-import { Languages, MapPin, Building, PenSquare, Eye, EyeOff, Save, X, AlertTriangle, CheckCircle, Loader2, List } from 'lucide-react';
+import { Languages, MapPin, Building, PenSquare, Eye, EyeOff, Save, X, AlertTriangle, CheckCircle, Loader2, List, Sparkles } from 'lucide-react';
 import Badge from '@/app/components/Badge';
 import SearchInput from '@/app/components/SearchInput';
 import FilterDropdown from '@/app/components/FilterDropdown';
@@ -77,6 +77,9 @@ export default function MandisTable() {
   const [pageSize, setPageSize] = useState(100);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [generatingTranslation, setGeneratingTranslation] = useState<number | null>(null);
+  const [batchGenerating, setBatchGenerating] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   
   const supabase = createClient();
 
@@ -217,6 +220,127 @@ export default function MandisTable() {
     fetchMandis();
   };
 
+  const generateTranslation = async (mandiId: number, name: string, district: string) => {
+    console.log(`[MandisTable] Starting translation generation for mandi: ${name} (ID: ${mandiId})`);
+    setGeneratingTranslation(mandiId);
+    try {
+      const langName = languages.find(l => l.code === selectedLanguage)?.name || selectedLanguage;
+      console.log(`[MandisTable] Calling API for language: ${selectedLanguage} (${langName})`);
+      
+      const response = await fetch('/api/gemini/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'mandi',
+          name,
+          district,
+          targetLanguage: selectedLanguage,
+          languageName: langName,
+        }),
+      });
+
+      console.log(`[MandisTable] API Response status:`, response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error(`[MandisTable] API Error:`, errorData);
+        throw new Error(errorData.error || 'Translation failed');
+      }
+
+      const data = await response.json();
+      console.log(`[MandisTable] API Response data:`, data);
+
+      const { name: translatedName, district: translatedDistrict } = data;
+      console.log(`[MandisTable] Translated name: "${translatedName}", district: "${translatedDistrict}"`);
+      
+      if (translatedName) {
+        updateTranslation(mandiId, selectedLanguage, 'name', translatedName);
+      }
+      if (translatedDistrict) {
+        updateTranslation(mandiId, selectedLanguage, 'district', translatedDistrict);
+      }
+    } catch (error) {
+      console.error('[MandisTable] Error generating translation:', error);
+      alert(`Failed to generate translation: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setGeneratingTranslation(null);
+    }
+  };
+
+  const batchTranslate = async () => {
+    const mandisNeedingTranslation = mandis.filter(mandi => {
+      const translation = mandi.mandi_translations.find(t => t.language_code === selectedLanguage);
+      return !translation?.name?.trim() || !translation?.district?.trim();
+    });
+
+    if (mandisNeedingTranslation.length === 0) {
+      alert('No mandis need translation for the selected language.');
+      return;
+    }
+
+    const itemsToTranslate = mandisNeedingTranslation.slice(0, 100);
+    const langName = languages.find(l => l.code === selectedLanguage)?.name || selectedLanguage;
+
+    console.log(`[MandisTable] Starting batch translation for ${itemsToTranslate.length} mandis in a single API call`);
+
+    setBatchGenerating(true);
+    setBatchProgress({ current: 0, total: itemsToTranslate.length });
+
+    try {
+      const items = itemsToTranslate.map(m => ({ 
+        id: m.id, 
+        name: m.name, 
+        district: m.districts?.name || '' 
+      }));
+      
+      const response = await fetch('/api/gemini/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'mandi',
+          items,
+          targetLanguage: selectedLanguage,
+          languageName: langName,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Batch translation failed');
+      }
+
+      const data = await response.json();
+      console.log(`[MandisTable] Batch translation result:`, data);
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const result of data.translations || []) {
+        if (result.name) {
+          updateTranslation(result.id, selectedLanguage, 'name', result.name);
+        }
+        if (result.district) {
+          updateTranslation(result.id, selectedLanguage, 'district', result.district);
+        }
+        if (result.name || result.district) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      }
+
+      setBatchProgress({ current: itemsToTranslate.length, total: itemsToTranslate.length });
+      console.log(`[MandisTable] Batch translation complete: ${successCount} success, ${failCount} failed`);
+      alert(`Batch translation complete!\nSuccess: ${successCount}\nFailed: ${failCount}`);
+    } catch (error) {
+      console.error('[MandisTable] Batch translation failed:', error);
+      alert(`Failed to generate translations: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setBatchGenerating(false);
+      setBatchProgress(null);
+    }
+  };
+
   // Memoized Data
   const paginatedMandis = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -245,6 +369,22 @@ export default function MandisTable() {
         />
         <div className="flex flex-wrap items-center gap-4">
           <LanguageSelector languages={languages} selected={selectedLanguage} onChange={setSelectedLanguage} />
+          {batchGenerating ? (
+            <div className="flex items-center gap-2 text-sm text-blue-600">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>
+                Translating {batchProgress?.current}/{batchProgress?.total}...
+              </span>
+            </div>
+          ) : (
+            <button
+              onClick={batchTranslate}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Sparkles className="w-4 h-4" />
+              Batch Translate (Max 100)
+            </button>
+          )}
           <FilterDropdown label="State" value={selectedState} onChange={(e) => {setSelectedState(e.target.value); setSelectedDistrict(''); setCurrentPage(1);}} options={states.map(s => ({ value: s.id, label: s.name }))} defaultOptionLabel="All States" />
           <FilterDropdown label="District" value={selectedDistrict} onChange={(e) => {setSelectedDistrict(e.target.value); setCurrentPage(1);}} options={districts.map(d => ({ value: d.id, label: d.name }))} disabled={!selectedState} defaultOptionLabel="All Districts" />
         </div>
@@ -270,12 +410,31 @@ export default function MandisTable() {
           <tbody className="bg-white divide-y divide-gray-200">
             {paginatedMandis.map(mandi => {
               const translation = mandi.mandi_translations.find(t => t.language_code === selectedLanguage);
+              const needsTranslation = !translation?.name || !translation?.district;
               return (
                 <tr key={mandi.id} className="hover:bg-indigo-50 transition-colors">
                   <td className="px-6 py-4 font-medium text-gray-900">{mandi.name}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{mandi.districts?.name}, {mandi.states?.name}</td>
-                  <td className="px-6 py-4"><input type="text" value={translation?.name || ''} onChange={e => updateTranslation(mandi.id, selectedLanguage, 'name', e.target.value)} className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500" placeholder="Enter name..." /></td>
-                  <td className="px-6 py-4"><input type="text" value={translation?.district || ''} onChange={e => updateTranslation(mandi.id, selectedLanguage, 'district', e.target.value)} className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500" placeholder="Enter district..." /></td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <input type="text" value={translation?.name || ''} onChange={e => updateTranslation(mandi.id, selectedLanguage, 'name', e.target.value)} className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500" placeholder="Enter name..." />
+                      {needsTranslation && (
+                        <button
+                          onClick={() => generateTranslation(mandi.id, mandi.name, mandi.districts?.name || '')}
+                          disabled={generatingTranslation === mandi.id}
+                          className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md transition-colors disabled:opacity-50 flex-shrink-0"
+                          title={`Generate ${selectedLangName} name`}
+                        >
+                          {generatingTranslation === mandi.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <input type="text" value={translation?.district || ''} onChange={e => updateTranslation(mandi.id, selectedLanguage, 'district', e.target.value)} className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500" placeholder="Enter district..." />
+                    </div>
+                  </td>
                 </tr>
               );
             })}
