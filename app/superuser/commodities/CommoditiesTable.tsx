@@ -560,9 +560,10 @@ export default function CommoditiesTable() {
     if (commoditiesNeedingTranslation.length === 0) {
       alert("No commodities need translation for the selected language.");
       return;
-    }
+    } // Set the count to the smaller of: the current page size OR 100
+ const displayLimit = Math.min(pageSize, 100);
+ const itemsToTranslate = commoditiesNeedingTranslation.slice(0, displayLimit);
 
-    const itemsToTranslate = commoditiesNeedingTranslation.slice(0, 100);
     const langName =
       languages.find((l) => l.code === selectedLanguage)?.name ||
       selectedLanguage;
