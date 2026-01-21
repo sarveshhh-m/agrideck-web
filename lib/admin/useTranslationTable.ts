@@ -4,19 +4,19 @@ import { useState, useCallback, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Tables } from '@/lib/supabase/database';
 
-interface UseTranslationTableOptions<T extends keyof Tables<'row'>> {
-  table: T;
+interface UseTranslationTableOptions {
+  table: string;
   translationsKey: string;
   selectFields?: string;
   orderBy?: string;
 }
 
-export function useTranslationTable<T extends keyof Tables<'row'>>({
+export function useTranslationTable({
   table,
   translationsKey,
   selectFields = '*',
   orderBy = 'name',
-}: UseTranslationTableOptions<T>) {
+}: UseTranslationTableOptions) {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);

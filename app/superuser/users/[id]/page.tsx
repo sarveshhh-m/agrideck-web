@@ -43,7 +43,7 @@ interface UserDetails extends User {
 }
 
 type Market = {
-  id: string;
+  id: number;
   name: string;
   district_id: string | null;
   state_id: string | null;
@@ -125,7 +125,7 @@ export default function UserDetailsPage() {
   const [availableMarkets, setAvailableMarkets] = useState<Market[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingMarkets, setLoadingMarkets] = useState(false);
-  const [processingMarket, setProcessingMarket] = useState<string | null>(null);
+  const [processingMarket, setProcessingMarket] = useState<string | number | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -190,7 +190,7 @@ export default function UserDetailsPage() {
         .order('name');
 
       if (marketsError) throw marketsError;
-      setAvailableMarkets(marketsData || []);
+      setAvailableMarkets((marketsData || []) as unknown as Market[]);
     } catch (error) {
       console.error('Error fetching markets:', error);
       alert('Failed to load markets. Please try again.');
@@ -199,7 +199,7 @@ export default function UserDetailsPage() {
     }
   };
 
-  const handleRemoveMarket = async (mandiId: string) => {
+  const handleRemoveMarket = async (mandiId: string | number) => {
     if (!confirm('Are you sure you want to remove this market from the user?')) {
       return;
     }
@@ -224,7 +224,7 @@ export default function UserDetailsPage() {
     }
   };
 
-  const handleAddMarket = async (mandiId: string) => {
+  const handleAddMarket = async (mandiId: string | number) => {
     setProcessingMarket(mandiId);
     try {
       const { error } = await supabase.from('user_mandis').insert({
