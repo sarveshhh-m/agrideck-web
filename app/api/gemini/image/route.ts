@@ -193,7 +193,7 @@ async function getAccessToken(): Promise<string | null> {
       tokenLength: accessTokenResponse.token?.length,
     }));
 
-    return accessTokenResponse.token;
+    return accessTokenResponse.token ?? null;
   } catch (error) {
     console.error("[API Image] ===== ACCESS TOKEN ERROR =====");
     console.error("[API Image] Failed to get access token:", error);
