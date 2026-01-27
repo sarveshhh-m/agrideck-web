@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateBatchCommodityTranslations, generateBatchMandiTranslations } from '@/lib/gemini/batch';
+import { generateBatchCommodityTranslations, generateBatchMandiTranslations, generateBatchStateTranslations } from '@/lib/gemini/batch';
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,6 +35,17 @@ export async function POST(request: NextRequest) {
         languageName
       );
       console.log(`[API Batch] Mandi translations complete:`, translations);
+      return NextResponse.json({ translations });
+    }
+
+    if (type === 'state') {
+      console.log(`[API Batch] Processing ${items.length} state translations`);
+      const translations = await generateBatchStateTranslations(
+        items,
+        targetLanguage,
+        languageName
+      );
+      console.log(`[API Batch] State translations complete:`, translations);
       return NextResponse.json({ translations });
     }
 

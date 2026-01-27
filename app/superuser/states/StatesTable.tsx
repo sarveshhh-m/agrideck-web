@@ -16,6 +16,8 @@ import {
   Loader2,
   List,
   Map,
+  Sparkles,
+  Trash2,
 } from "lucide-react";
 import Badge from "@/app/components/Badge";
 import SearchInput from "@/app/components/SearchInput";
@@ -85,6 +87,8 @@ export default function StatesTable() {
   const [searchQuery, setSearchQuery] = useState("");
   const [pageSize, setPageSize] = useState(100);
   const [currentPage, setCurrentPage] = useState(1);
+  const [batchGenerating, setBatchGenerating] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
 
   const supabase = createClient();
 
@@ -200,6 +204,10 @@ export default function StatesTable() {
     );
   };
 
+  const removeTranslation = (stateId: number, languageCode: string) => {
+    updateTranslation(stateId, languageCode, "");
+  };
+
   const saveAllChanges = async () => {
     if (pendingChanges.length === 0) return;
     setSaving(true);
@@ -248,6 +256,96 @@ export default function StatesTable() {
     fetchStates();
   };
 
+  const showBatchTranslationConfirm = () => {
+    const statesNeedingTranslation = filteredStates.filter(
+      (state) =>
+        !state.state_translations
+          .find((t) => t.language_code === selectedLanguage)
+          ?.name?.trim(),
+    );
+
+    if (statesNeedingTranslation.length === 0) {
+      alert("No states need translation for the selected language.");
+      return;
+    }
+
+    const itemsToTranslate = statesNeedingTranslation.slice(0, 100);
+    const langName =
+      languages.find((l) => l.code === selectedLanguage)?.name ||
+      selectedLanguage;
+
+    console.log(
+      `[StatesTable] Starting batch translation for ${itemsToTranslate.length} states in a single API call`,
+    );
+
+    setBatchGenerating(true);
+    setBatchProgress({ current: 0, total: itemsToTranslate.length });
+
+    try {
+      const items = itemsToTranslate.map((s) => ({ id: s.id, name: s.name }));
+
+      fetch("/api/gemini/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "state",
+          items,
+          targetLanguage: selectedLanguage,
+          languageName: langName,
+        }),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            return response.json().then((errorData) => {
+              throw new Error(errorData.error || "Batch translation failed");
+            });
+          }
+          return response.json();
+        })
+        .then((data) => {
+          console.log(`[StatesTable] Batch translation result:`, data);
+
+          let successCount = 0;
+          let failCount = 0;
+
+          for (const result of data.translations || []) {
+            if (result.translation) {
+              updateTranslation(result.id, selectedLanguage, result.translation);
+              successCount++;
+            } else {
+              failCount++;
+            }
+          }
+
+          setBatchProgress({
+            current: itemsToTranslate.length,
+            total: itemsToTranslate.length,
+          });
+          console.log(
+            `[StatesTable] Batch translation complete: ${successCount} success, ${failCount} failed`,
+          );
+          alert(
+            `Batch translation complete!\nSuccess: ${successCount}\nFailed: ${failCount}`,
+          );
+        })
+        .catch((error) => {
+          console.error("[StatesTable] Batch translation failed:", error);
+          alert(
+            `Failed to generate translations: ${error instanceof Error ? error.message : "Unknown error"}`,
+          );
+        })
+        .finally(() => {
+          setBatchGenerating(false);
+          setBatchProgress(null);
+        });
+    } catch (error) {
+      console.error("[StatesTable] Batch translation setup failed:", error);
+      alert("Failed to start batch translation");
+      setBatchGenerating(false);
+      setBatchProgress(null);
+    }
+  };
+
   const filteredStates = useMemo(() => {
     return states.filter((state) => {
       const searchMatch =
@@ -290,6 +388,22 @@ export default function StatesTable() {
           placeholder="Search states..."
           className="flex-1 min-w-[250px]"
         />
+        {batchGenerating ? (
+          <div className="flex items-center gap-2 text-sm text-blue-600">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>
+              Translating {batchProgress?.current}/{batchProgress?.total}...
+            </span>
+          </div>
+        ) : (
+          <button
+            onClick={showBatchTranslationConfirm}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+          >
+            <Sparkles className="w-4 h-4" />
+            Batch Translate (Max 100)
+          </button>
+        )}
         <div className="flex items-center gap-2 text-sm">
           <Badge type="role" value={`${filteredStates.length} States`} />
           <Badge type="status" value={`Editing: ${selectedLangName}`} />
@@ -324,19 +438,32 @@ export default function StatesTable() {
                     {state.name}
                   </td>
                   <td className="px-6 py-4">
-                    <input
-                      type="text"
-                      value={translation?.name || ""}
-                      onChange={(e) =>
-                        updateTranslation(
-                          state.id,
-                          selectedLanguage,
-                          e.target.value,
-                        )
-                      }
-                      className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500"
-                      placeholder="Enter name..."
-                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={translation?.name || ""}
+                        onChange={(e) =>
+                          updateTranslation(
+                            state.id,
+                            selectedLanguage,
+                            e.target.value,
+                          )
+                        }
+                        className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Enter name..."
+                      />
+                      {translation?.name && (
+                        <button
+                          onClick={() =>
+                            removeTranslation(state.id, selectedLanguage)
+                          }
+                          className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-md transition-colors flex-shrink-0"
+                          title={`Remove ${selectedLangName} name`}
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );

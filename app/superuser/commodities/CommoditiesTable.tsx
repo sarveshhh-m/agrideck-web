@@ -18,8 +18,11 @@ import {
   List,
   Search,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import Badge from "@/app/components/Badge";
+import { TranslationConfirmDialog } from "@/components/admin/TranslationConfirmDialog";
+import { ImageGenerationConfirmDialog } from "@/components/admin/ImageGenerationConfirmDialog";
 
 // Type definitions from original file
 type Commodity = Tables<"commodities"> & {
@@ -121,11 +124,10 @@ const ImageUploader = ({
         </div>
       </label>
       <button
-        onClick={() => {}}
-        // onClick={() => onGenerateAI(commodity.id, commodity.name)}
+        onClick={() => onGenerateAI(commodity.id, commodity.name)}
         disabled={isGeneratingAI}
         className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md transition-colors disabled:opacity-50"
-        title="Generate with AI"
+        title="Generate with Google Imagen"
       >
         {isGeneratingAI ? (
           <Loader2 className="w-5 h-5 animate-spin" />
@@ -168,6 +170,18 @@ export default function CommoditiesTable() {
   const [searchQuery, setSearchQuery] = useState("");
   const [pageSize, setPageSize] = useState(100);
   const [currentPage, setCurrentPage] = useState(1);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingTranslation, setPendingTranslation] = useState<{
+    type: 'single' | 'batch';
+    commodityId?: number;
+    commodityName?: string;
+    itemCount?: number;
+  } | null>(null);
+  const [imageConfirmDialogOpen, setImageConfirmDialogOpen] = useState(false);
+  const [pendingImageGeneration, setPendingImageGeneration] = useState<{
+    commodityId: number;
+    commodityName: string;
+  } | null>(null);
   const supabase = createClient();
 
   // Data fetching and state management (mostly unchanged)
@@ -299,6 +313,10 @@ export default function CommoditiesTable() {
     );
   };
 
+  const removeTranslation = (commodityId: number, languageCode: string) => {
+    updateTranslation(commodityId, languageCode, "");
+  };
+
   const saveAllChanges = async () => {
     if (pendingChanges.length === 0) return;
     setSaving(true);
@@ -371,9 +389,23 @@ export default function CommoditiesTable() {
     }
   };
 
-  const generateTranslation = async (commodityId: number, name: string) => {
+  const showSingleTranslationConfirm = (commodityId: number, name: string) => {
+    setPendingTranslation({
+      type: 'single',
+      commodityId,
+      commodityName: name,
+    });
+    setConfirmDialogOpen(true);
+  };
+
+  const performSingleTranslation = async () => {
+    if (!pendingTranslation || pendingTranslation.type !== 'single') return;
+
+    const { commodityId, commodityName } = pendingTranslation;
+    if (!commodityId || !commodityName) return;
+
     console.log(
-      `[CommoditiesTable] Starting translation generation for commodity: ${name} (ID: ${commodityId})`,
+      `[CommoditiesTable] Starting translation generation for commodity: ${commodityName} (ID: ${commodityId})`,
     );
     setGeneratingTranslation(commodityId);
     try {
@@ -385,7 +417,7 @@ export default function CommoditiesTable() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "commodity",
-          name,
+          name: commodityName,
           targetLanguage: selectedLanguage,
           languageName:
             languages.find((l) => l.code === selectedLanguage)?.name ||
@@ -416,19 +448,35 @@ export default function CommoditiesTable() {
       } else {
         console.warn(`[CommoditiesTable] Translation is empty`);
       }
+      setConfirmDialogOpen(false);
+      setPendingTranslation(null);
     } catch (error) {
       console.error("[CommoditiesTable] Error generating translation:", error);
       alert(
         `Failed to generate translation: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
+      setConfirmDialogOpen(false);
+      setPendingTranslation(null);
     } finally {
       setGeneratingTranslation(null);
     }
   };
 
-  const generateImage = async (commodityId: number, name: string) => {
+  const showImageGenerationConfirm = (commodityId: number, name: string) => {
+    setPendingImageGeneration({
+      commodityId,
+      commodityName: name,
+    });
+    setImageConfirmDialogOpen(true);
+  };
+
+  const performImageGeneration = async () => {
+    if (!pendingImageGeneration) return;
+
+    const { commodityId, commodityName } = pendingImageGeneration;
+
     console.log(
-      `[CommoditiesTable] Starting image generation for commodity: ${name} (ID: ${commodityId})`,
+      `[CommoditiesTable] Starting image generation for commodity: ${commodityName} (ID: ${commodityId})`,
     );
     setGeneratingImage(commodityId);
     try {
@@ -436,7 +484,7 @@ export default function CommoditiesTable() {
       const response = await fetch("/api/gemini/image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ commodityName: name }),
+        body: JSON.stringify({ commodityName }),
       });
 
       console.log(`[CommoditiesTable] API Response status:`, response.status);
@@ -460,17 +508,21 @@ export default function CommoditiesTable() {
         );
         setPendingImage({
           commodityId,
-          commodityName: name,
+          commodityName,
           imageData: data.image,
         });
         setPreviewImage(`data:image/jpeg;base64,${data.image}`);
         console.log(`[CommoditiesTable] Image ready for preview and upload`);
       }
+      setImageConfirmDialogOpen(false);
+      setPendingImageGeneration(null);
     } catch (error) {
       console.error("[CommoditiesTable] Error generating image:", error);
       alert(
         `Failed to generate image: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
+      setImageConfirmDialogOpen(false);
+      setPendingImageGeneration(null);
     } finally {
       setGeneratingImage(null);
     }
@@ -549,7 +601,7 @@ export default function CommoditiesTable() {
     });
   }
 
-  const batchTranslate = async () => {
+  const showBatchTranslationConfirm = () => {
     const commoditiesNeedingTranslation = filteredCommodities.filter(
       (commodity) =>
         !commodity.commodity_translations
@@ -560,10 +612,27 @@ export default function CommoditiesTable() {
     if (commoditiesNeedingTranslation.length === 0) {
       alert("No commodities need translation for the selected language.");
       return;
-    } // Set the count to the smaller of: the current page size OR 100
- const displayLimit = Math.min(pageSize, 100);
- const itemsToTranslate = commoditiesNeedingTranslation.slice(0, displayLimit);
+    }
 
+    const itemCount = Math.min(commoditiesNeedingTranslation.length, 100);
+    setPendingTranslation({
+      type: 'batch',
+      itemCount,
+    });
+    setConfirmDialogOpen(true);
+  };
+
+  const performBatchTranslation = async () => {
+    if (!pendingTranslation || pendingTranslation.type !== 'batch') return;
+
+    const commoditiesNeedingTranslation = filteredCommodities.filter(
+      (commodity) =>
+        !commodity.commodity_translations
+          .find((t) => t.language_code === selectedLanguage)
+          ?.name?.trim(),
+    );
+
+    const itemsToTranslate = commoditiesNeedingTranslation.slice(0, 100);
     const langName =
       languages.find((l) => l.code === selectedLanguage)?.name ||
       selectedLanguage;
@@ -619,11 +688,15 @@ export default function CommoditiesTable() {
       alert(
         `Batch translation complete!\nSuccess: ${successCount}\nFailed: ${failCount}`,
       );
+      setConfirmDialogOpen(false);
+      setPendingTranslation(null);
     } catch (error) {
       console.error("[CommoditiesTable] Batch translation failed:", error);
       alert(
         `Failed to generate translations: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
+      setConfirmDialogOpen(false);
+      setPendingTranslation(null);
     } finally {
       setBatchGenerating(false);
       setBatchProgress(null);
@@ -708,7 +781,7 @@ export default function CommoditiesTable() {
             </div>
           ) : (
             <button
-              onClick={batchTranslate}
+              onClick={showBatchTranslationConfirm}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
             >
               <Sparkles className="w-4 h-4" />
@@ -798,7 +871,7 @@ export default function CommoditiesTable() {
                       commodity={commodity}
                       onUpload={uploadImage}
                       isUploading={uploadingImages.has(commodity.id)}
-                      onGenerateAI={generateImage}
+                      onGenerateAI={showImageGenerationConfirm}
                       isGeneratingAI={generatingImage === commodity.id}
                     />
                   </td>
@@ -817,10 +890,10 @@ export default function CommoditiesTable() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-indigo-500 text-sm"
                         placeholder={`Enter ${selectedLangName} name...`}
                       />
-                      {!translation?.name && (
+                      {!translation?.name ? (
                         <button
                           onClick={() =>
-                            generateTranslation(commodity.id, commodity.name)
+                            showSingleTranslationConfirm(commodity.id, commodity.name)
                           }
                           disabled={generatingTranslation === commodity.id}
                           className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md transition-colors flex-shrink-0 disabled:opacity-50"
@@ -831,6 +904,16 @@ export default function CommoditiesTable() {
                           ) : (
                             <Sparkles className="w-5 h-5" />
                           )}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() =>
+                            removeTranslation(commodity.id, selectedLanguage)
+                          }
+                          className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-md transition-colors flex-shrink-0"
+                          title={`Remove ${selectedLangName} name`}
+                        >
+                          <Trash2 className="w-5 h-5" />
                         </button>
                       )}
                     </div>
@@ -1027,6 +1110,32 @@ export default function CommoditiesTable() {
           </div>
         </div>
       )}
+
+      <TranslationConfirmDialog
+        isOpen={confirmDialogOpen}
+        onClose={() => {
+          setConfirmDialogOpen(false);
+          setPendingTranslation(null);
+        }}
+        onConfirm={pendingTranslation?.type === 'single' ? performSingleTranslation : performBatchTranslation}
+        type={pendingTranslation?.type || 'single'}
+        translationType="commodity"
+        itemName={pendingTranslation?.commodityName}
+        itemCount={pendingTranslation?.itemCount}
+        targetLanguage={languages.find((l) => l.code === selectedLanguage)?.name || selectedLanguage}
+        loading={generatingTranslation !== null || batchGenerating}
+      />
+
+      <ImageGenerationConfirmDialog
+        isOpen={imageConfirmDialogOpen}
+        onClose={() => {
+          setImageConfirmDialogOpen(false);
+          setPendingImageGeneration(null);
+        }}
+        onConfirm={performImageGeneration}
+        itemName={pendingImageGeneration?.commodityName || ''}
+        loading={generatingImage !== null}
+      />
     </div>
   );
 }

@@ -3,11 +3,12 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Tables } from '@/lib/supabase/database';
-import { Languages, MapPin, Building, PenSquare, Eye, EyeOff, Save, X, AlertTriangle, CheckCircle, Loader2, List, Sparkles } from 'lucide-react';
+import { Languages, MapPin, Building, PenSquare, Eye, EyeOff, Save, X, AlertTriangle, CheckCircle, Loader2, List, Sparkles, Trash2 } from 'lucide-react';
 import Badge from '@/app/components/Badge';
 import SearchInput from '@/app/components/SearchInput';
 import FilterDropdown from '@/app/components/FilterDropdown';
 import Pagination from '@/app/components/Pagination';
+import { TranslationConfirmDialog } from '@/components/admin/TranslationConfirmDialog';
 
 // Type definitions
 type Mandi = Tables<'mandis'> & {
@@ -80,7 +81,15 @@ export default function MandisTable() {
   const [generatingTranslation, setGeneratingTranslation] = useState<number | null>(null);
   const [batchGenerating, setBatchGenerating] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
-  
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingTranslation, setPendingTranslation] = useState<{
+    type: 'single' | 'batch';
+    mandiId?: number;
+    mandiName?: string;
+    districtName?: string;
+    itemCount?: number;
+  } | null>(null);
+
   const supabase = createClient();
 
   useEffect(() => {
@@ -183,6 +192,10 @@ export default function MandisTable() {
       return { ...m, mandi_translations: [...m.mandi_translations, { mandi_id: mandiId, language_code: languageCode, [field]: value } as any] };
     }));
   };
+
+  const removeTranslation = (mandiId: number, languageCode: string, field: 'name' | 'district') => {
+    updateTranslation(mandiId, languageCode, field, "");
+  };
   
   const saveAllChanges = async () => {
     if (pendingChanges.length === 0) return;
@@ -220,20 +233,35 @@ export default function MandisTable() {
     fetchMandis();
   };
 
-  const generateTranslation = async (mandiId: number, name: string, district: string) => {
-    console.log(`[MandisTable] Starting translation generation for mandi: ${name} (ID: ${mandiId})`);
+  const showSingleTranslationConfirm = (mandiId: number, name: string, district: string) => {
+    setPendingTranslation({
+      type: 'single',
+      mandiId,
+      mandiName: name,
+      districtName: district,
+    });
+    setConfirmDialogOpen(true);
+  };
+
+  const performSingleTranslation = async () => {
+    if (!pendingTranslation || pendingTranslation.type !== 'single') return;
+
+    const { mandiId, mandiName, districtName } = pendingTranslation;
+    if (!mandiId || !mandiName || !districtName) return;
+
+    console.log(`[MandisTable] Starting translation generation for mandi: ${mandiName} (ID: ${mandiId})`);
     setGeneratingTranslation(mandiId);
     try {
       const langName = languages.find(l => l.code === selectedLanguage)?.name || selectedLanguage;
       console.log(`[MandisTable] Calling API for language: ${selectedLanguage} (${langName})`);
-      
+
       const response = await fetch('/api/gemini/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'mandi',
-          name,
-          district,
+          name: mandiName,
+          district: districtName,
           targetLanguage: selectedLanguage,
           languageName: langName,
         }),
@@ -252,22 +280,26 @@ export default function MandisTable() {
 
       const { name: translatedName, district: translatedDistrict } = data;
       console.log(`[MandisTable] Translated name: "${translatedName}", district: "${translatedDistrict}"`);
-      
+
       if (translatedName) {
         updateTranslation(mandiId, selectedLanguage, 'name', translatedName);
       }
       if (translatedDistrict) {
         updateTranslation(mandiId, selectedLanguage, 'district', translatedDistrict);
       }
+      setConfirmDialogOpen(false);
+      setPendingTranslation(null);
     } catch (error) {
       console.error('[MandisTable] Error generating translation:', error);
       alert(`Failed to generate translation: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setConfirmDialogOpen(false);
+      setPendingTranslation(null);
     } finally {
       setGeneratingTranslation(null);
     }
   };
 
-  const batchTranslate = async () => {
+  const showBatchTranslationConfirm = () => {
     const mandisNeedingTranslation = mandis.filter(mandi => {
       const translation = mandi.mandi_translations.find(t => t.language_code === selectedLanguage);
       return !translation?.name?.trim() || !translation?.district?.trim();
@@ -278,6 +310,22 @@ export default function MandisTable() {
       return;
     }
 
+    const itemCount = Math.min(mandisNeedingTranslation.length, 100);
+    setPendingTranslation({
+      type: 'batch',
+      itemCount,
+    });
+    setConfirmDialogOpen(true);
+  };
+
+  const performBatchTranslation = async () => {
+    if (!pendingTranslation || pendingTranslation.type !== 'batch') return;
+
+    const mandisNeedingTranslation = mandis.filter(mandi => {
+      const translation = mandi.mandi_translations.find(t => t.language_code === selectedLanguage);
+      return !translation?.name?.trim() || !translation?.district?.trim();
+    });
+
     const itemsToTranslate = mandisNeedingTranslation.slice(0, 100);
     const langName = languages.find(l => l.code === selectedLanguage)?.name || selectedLanguage;
 
@@ -287,12 +335,12 @@ export default function MandisTable() {
     setBatchProgress({ current: 0, total: itemsToTranslate.length });
 
     try {
-      const items = itemsToTranslate.map(m => ({ 
-        id: m.id, 
-        name: m.name, 
-        district: m.districts?.name || '' 
+      const items = itemsToTranslate.map(m => ({
+        id: m.id,
+        name: m.name,
+        district: m.districts?.name || ''
       }));
-      
+
       const response = await fetch('/api/gemini/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -332,9 +380,13 @@ export default function MandisTable() {
       setBatchProgress({ current: itemsToTranslate.length, total: itemsToTranslate.length });
       console.log(`[MandisTable] Batch translation complete: ${successCount} success, ${failCount} failed`);
       alert(`Batch translation complete!\nSuccess: ${successCount}\nFailed: ${failCount}`);
+      setConfirmDialogOpen(false);
+      setPendingTranslation(null);
     } catch (error) {
       console.error('[MandisTable] Batch translation failed:', error);
       alert(`Failed to generate translations: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setConfirmDialogOpen(false);
+      setPendingTranslation(null);
     } finally {
       setBatchGenerating(false);
       setBatchProgress(null);
@@ -378,7 +430,7 @@ export default function MandisTable() {
             </div>
           ) : (
             <button
-              onClick={batchTranslate}
+              onClick={showBatchTranslationConfirm}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
             >
               <Sparkles className="w-4 h-4" />
@@ -418,14 +470,22 @@ export default function MandisTable() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <input type="text" value={translation?.name || ''} onChange={e => updateTranslation(mandi.id, selectedLanguage, 'name', e.target.value)} className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500" placeholder="Enter name..." />
-                      {needsTranslation && (
+                      {needsTranslation ? (
                         <button
-                          onClick={() => generateTranslation(mandi.id, mandi.name, mandi.districts?.name || '')}
+                          onClick={() => showSingleTranslationConfirm(mandi.id, mandi.name, mandi.districts?.name || '')}
                           disabled={generatingTranslation === mandi.id}
                           className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md transition-colors disabled:opacity-50 flex-shrink-0"
                           title={`Generate ${selectedLangName} name`}
                         >
                           {generatingTranslation === mandi.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+                        </button>
+                      ) : translation?.name && (
+                        <button
+                          onClick={() => removeTranslation(mandi.id, selectedLanguage, 'name')}
+                          className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-md transition-colors flex-shrink-0"
+                          title={`Remove ${selectedLangName} name`}
+                        >
+                          <Trash2 className="w-5 h-5" />
                         </button>
                       )}
                     </div>
@@ -433,6 +493,15 @@ export default function MandisTable() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <input type="text" value={translation?.district || ''} onChange={e => updateTranslation(mandi.id, selectedLanguage, 'district', e.target.value)} className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500" placeholder="Enter district..." />
+                      {translation?.district && (
+                        <button
+                          onClick={() => removeTranslation(mandi.id, selectedLanguage, 'district')}
+                          className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-md transition-colors flex-shrink-0"
+                          title={`Remove ${selectedLangName} district`}
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -505,6 +574,21 @@ export default function MandisTable() {
           </div>
         </div>
       )}
+
+      <TranslationConfirmDialog
+        isOpen={confirmDialogOpen}
+        onClose={() => {
+          setConfirmDialogOpen(false);
+          setPendingTranslation(null);
+        }}
+        onConfirm={pendingTranslation?.type === 'single' ? performSingleTranslation : performBatchTranslation}
+        type={pendingTranslation?.type || 'single'}
+        translationType="mandi"
+        itemName={pendingTranslation?.mandiName}
+        itemCount={pendingTranslation?.itemCount}
+        targetLanguage={languages.find((l) => l.code === selectedLanguage)?.name || selectedLanguage}
+        loading={generatingTranslation !== null || batchGenerating}
+      />
     </div>
   );
 }

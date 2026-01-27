@@ -28,6 +28,50 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.env.production
+.env.development
+.env.test
+
+# sensitive files & credentials
+*.key
+*.pem
+*.p12
+*.pfx
+*.cer
+*.crt
+*-key.json
+credentials.json
+service-account*.json
+vertex-ai-key.json
+firebase-adminsdk*.json
+serviceAccountKey.json
+google-credentials*.json
+aws-credentials*.json
+secrets.json
+secrets.yaml
+secrets.yml
+config/secrets.*
+
+# API keys and tokens
+.api-keys
+api-keys.json
+api-keys.txt
+token.json
+tokens.json
+*.token
+
+# database credentials
+database.yml
+database.json
+*.sql.gz
+*.dump
+
+# SSH keys
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+*.ppk
 
 # vercel
 .vercel
@@ -38,3 +82,6 @@ next-env.d.ts
 
 # opencode config
 opencode.jsonc
+
+# claude code config
+.claude/

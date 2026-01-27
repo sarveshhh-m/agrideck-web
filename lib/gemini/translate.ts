@@ -80,14 +80,19 @@ export async function generateTranslation(
 
   console.log(`[Gemini] Generating translation for "${name}" to ${languageName} (${targetLanguage})`);
 
-  const prompt = `You are a translation expert for agricultural commodities in India.
+   const prompt = `You are a translation expert for agricultural commodities in India.
 
 Translate the commodity name from English to ${languageName} (${targetLanguage}).
 
 Original: ${name}
 ${context ? `Context: ${context}` : ''}
 
-Return only the translation, no explanation. If unsure, return empty string.`;
+IMPORTANT INSTRUCTIONS:
+1. If the commodity can be properly translated to ${languageName}, provide the accurate translation.
+2. If the commodity name is a proper noun, local variety name, or cannot be meaningfully translated (like specific crop varieties), write it phonetically using ONLY ${languageName} script characters - no English letters should appear in the result.
+3. Always attempt to provide some form of the name in ${languageName} - never return empty unless the commodity name itself is completely unclear.
+
+Return only the translation, no explanation.`;
 
   try {
     const translation = await generateContentWithRetry(prompt, 50, 3);
@@ -126,7 +131,7 @@ export async function generateMandiTranslation(
 
   console.log(`[Gemini] Generating mandi translation for "${name}" (${district}) to ${languageName} (${targetLanguage})`);
 
-  const prompt = `You are a translation expert for agricultural market places (mandis) in India.
+   const prompt = `You are a translation expert for agricultural market places (mandis) in India.
 
 IMPORTANT: If the mandi name contains "APMC" (Agricultural Produce Market Committee), REMOVE it from the translation.
 - Example: "Achampet APMC" → translate only "Achampet"
@@ -137,10 +142,14 @@ Translate the mandi name and district from English to ${languageName} (${targetL
 Mandi: ${name}
 District: ${district}
 
-Return the response in JSON format:
-{"name": "translated name (without APMC)", "district": "translated district"}
+ADDITIONAL INSTRUCTIONS:
+4. If a place name is a proper noun or local name that cannot be meaningfully translated, write it phonetically using ONLY ${languageName} script characters - no English letters should appear in the result.
+5. Always attempt to provide some form of the names in ${languageName} - never return empty unless the name itself is completely unclear.
 
-Return only the JSON, no explanation. If translation is unsure, return empty strings.`;
+Return the response in JSON format:
+{"name": "translated or phonetic name (without APMC)", "district": "translated or phonetic district"}
+
+Return only the JSON, no explanation.`;
 
   try {
     const text = await generateContentWithRetry(prompt, 100, 3);
@@ -165,7 +174,7 @@ Return only the JSON, no explanation. If translation is unsure, return empty str
     }
   } catch (error) {
     console.error('[Gemini] Mandi translation failed:', error);
-    
+
     if (isApiError(error)) {
       console.error('[Gemini] API Error details:', {
         code: error.error?.code,
@@ -173,11 +182,60 @@ Return only the JSON, no explanation. If translation is unsure, return empty str
         message: error.error?.message
       });
     }
-    
+
     if (isApiError(error) && error.error?.code === 429) {
       throw new Error('Quota exceeded. Please try again later or add billing to your Google Cloud project.');
     }
-    
+
+    throw error;
+  }
+}
+
+export async function generateStateTranslation(
+  name: string,
+  targetLanguage: string,
+  languageName: string
+): Promise<string> {
+  if (!isConfigured() || !geminiClient) {
+    const error = new Error('Gemini API is not configured. Please set GEMINI_API_KEY in .env.local');
+    console.error('[Gemini]', error.message);
+    throw error;
+  }
+
+  console.log(`[Gemini] Generating state translation for "${name}" to ${languageName} (${targetLanguage})`);
+
+  const prompt = `You are a translation expert for Indian state names.
+
+Translate the state name from English to ${languageName} (${targetLanguage}).
+
+Original: ${name}
+
+IMPORTANT INSTRUCTIONS:
+1. If the state name can be properly translated to ${languageName}, provide the accurate translation.
+2. If the state name is a proper noun or local name that cannot be meaningfully translated, write it phonetically using ONLY ${languageName} script characters - no English letters should appear in the result.
+3. Always attempt to provide some form of the name in ${languageName} - never return empty unless the state name itself is completely unclear.
+
+Return only the translation, no explanation.`;
+
+  try {
+    const translation = await generateContentWithRetry(prompt, 50, 3);
+    console.log(`[Gemini] State translation result: "${translation}"`);
+    return translation;
+  } catch (error) {
+    console.error('[Gemini] State translation failed:', error);
+
+    if (isApiError(error)) {
+      console.error('[Gemini] API Error details:', {
+        code: error.error?.code,
+        status: error.error?.status,
+        message: error.error?.message
+      });
+    }
+
+    if (isApiError(error) && error.error?.code === 429) {
+      throw new Error('Quota exceeded. Please try again later or add billing to your Google Cloud project.');
+    }
+
     throw error;
   }
 }
